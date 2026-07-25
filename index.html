@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Zero-Point Energy — a visual theory tour</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%2304060d'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%234fe3ff' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='2.5' fill='%23ff5ec4'/%3E%3C/svg%3E" />
+<style>
+  :root{
+    --bg:#04060d;
+    --ink:#dbe6ff;
+    --dim:#7d8bb0;
+    --cyan:#4fe3ff;
+    --violet:#a06bff;
+    --mag:#ff5ec4;
+    --amber:#ffcf6b;
+    --panel:rgba(10,16,32,.62);
+    --edge:rgba(120,160,255,.16);
+    --mono:ui-monospace,"SF Mono",Menlo,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:var(--mono); font-size:13px; overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  canvas{display:block}
+  #app{position:fixed;inset:0}
+
+  /* vignette + grain */
+  #vig{position:fixed;inset:0;pointer-events:none;z-index:2;
+    background:radial-gradient(120% 90% at 50% 45%,transparent 40%,rgba(0,0,0,.72) 100%);}
+
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--edge);
+    border-radius:12px;
+    backdrop-filter:blur(14px) saturate(140%);
+    -webkit-backdrop-filter:blur(14px) saturate(140%);
+  }
+
+  /* ---------- header ---------- */
+  #head{position:fixed;top:22px;left:24px;z-index:5;pointer-events:none}
+  #head h1{
+    font-size:15px;font-weight:600;letter-spacing:.42em;
+    color:#fff;text-transform:uppercase;
+  }
+  #head p{margin-top:7px;font-size:11px;color:var(--dim);letter-spacing:.16em}
+  #head .eq{margin-top:10px;font-size:12px;color:var(--cyan);letter-spacing:.06em;opacity:.9}
+
+  /* ---------- mode rail ---------- */
+  #rail{position:fixed;left:24px;top:140px;z-index:5;display:flex;flex-direction:column;gap:8px;width:232px}
+  .mode{
+    display:flex;gap:11px;align-items:baseline;
+    padding:11px 13px;cursor:pointer;
+    border:1px solid var(--edge);border-radius:10px;
+    background:rgba(10,16,32,.5);
+    transition:.22s cubic-bezier(.2,.8,.3,1);
+    backdrop-filter:blur(10px);
+  }
+  .mode:hover{background:rgba(24,36,70,.6);transform:translateX(3px)}
+  .mode .n{font-size:10px;color:var(--dim);width:14px;flex:none}
+  .mode .t{font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:#c3d0ef}
+  .mode.on{border-color:rgba(79,227,255,.4);background:rgba(20,52,80,.55);
+    border-left:2px solid var(--cyan);
+    box-shadow:0 8px 22px -12px rgba(0,0,0,.85)}
+  .mode.on .t{color:#fff}
+  .mode.on .n{color:var(--cyan)}
+
+  /* ---------- explainer ---------- */
+  #note{position:fixed;left:24px;bottom:24px;z-index:5;width:376px;padding:16px 18px}
+  #note h2{font-size:11px;letter-spacing:.28em;color:var(--cyan);text-transform:uppercase}
+  #note .formula{
+    margin:12px 0;padding:11px 12px;border-radius:8px;
+    background:rgba(0,0,0,.35);border-left:2px solid var(--violet);
+    font-size:15px;color:#fff;letter-spacing:.03em;line-height:1.5;
+  }
+  #note .formula small{display:block;font-size:10.5px;color:var(--dim);letter-spacing:.08em;margin-top:5px}
+  #note p{font-size:11.5px;line-height:1.75;color:#a9b6d6;letter-spacing:.02em}
+  #note p + p{margin-top:9px}
+  #note em{color:var(--amber);font-style:normal}
+
+  /* ---------- right column ---------- */
+  #right{position:fixed;right:24px;top:22px;z-index:5;width:288px;display:flex;flex-direction:column;gap:12px}
+  .card{padding:15px 16px}
+  .card h3{font-size:10px;letter-spacing:.28em;color:var(--dim);text-transform:uppercase;margin-bottom:12px}
+
+  .row{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:5px 0}
+  .row + .row{border-top:1px solid rgba(120,160,255,.08)}
+  .row .k{font-size:10.5px;color:var(--dim);letter-spacing:.05em}
+  .row .v{font-size:12.5px;color:#fff;letter-spacing:.02em;text-align:right}
+  .row .v.hi{color:var(--cyan)}
+  .row .v.warn{color:var(--mag)}
+
+  .ctl{padding:9px 0}
+  .ctl + .ctl{border-top:1px solid rgba(120,160,255,.08)}
+  .ctl label{display:flex;justify-content:space-between;font-size:10.5px;color:var(--dim);letter-spacing:.05em;margin-bottom:9px}
+  .ctl label b{color:var(--cyan);font-weight:500;font-size:11.5px}
+  input[type=range]{
+    -webkit-appearance:none;appearance:none;width:100%;height:2px;
+    background:rgba(120,160,255,.22);border-radius:2px;outline:none;cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:13px;height:13px;border-radius:50%;
+    background:var(--cyan);cursor:pointer;
+    border:2px solid #0b1424;
+  }
+  input[type=range]:hover::-webkit-slider-thumb{background:#8af0ff}
+
+  /* log comparison bars (mode 4) */
+  .bars{margin-top:4px}
+  .bar{margin:9px 0}
+  .bar .lab{display:flex;justify-content:space-between;font-size:10px;color:var(--dim);margin-bottom:5px}
+  .bar .track{height:5px;background:rgba(120,160,255,.12);border-radius:3px;overflow:hidden}
+  .bar .fill{height:100%;border-radius:3px;transition:width .35s ease}
+  .fill.pred{background:linear-gradient(90deg,#a06bff,#ff5ec4)}
+  .fill.obs{background:linear-gradient(90deg,#2a4a6a,#4fe3ff)}
+
+  #hint{position:fixed;right:24px;bottom:24px;z-index:5;font-size:10px;color:#48557a;letter-spacing:.16em;text-align:right;line-height:1.9}
+  #foot{position:fixed;left:50%;transform:translateX(-50%);bottom:26px;z-index:4;
+    font-size:10px;color:#3f4b6d;letter-spacing:.2em;text-transform:uppercase}
+
+  .hidden{display:none !important}
+
+  @media (max-width:1180px){
+    #note{width:320px}
+    #right{width:250px}
+  }
+  @media (max-width:900px){
+    #note,#hint,#foot{display:none}
+    #right{position:fixed;right:12px;top:auto;bottom:12px;width:calc(100% - 24px)}
+    #rail{width:170px;top:126px;left:12px}
+    #head{left:14px;top:14px}
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="vig"></div>
+
+<div id="head">
+  <h1>Zero-Point Energy</h1>
+  <p>THE VACUUM IS NOT EMPTY</p>
+  <div class="eq" id="headEq">E₀ = ½ħω</div>
+</div>
+
+<div id="rail"></div>
+
+<div id="note" class="panel">
+  <h2 id="noteTitle"></h2>
+  <div class="formula" id="noteEq"></div>
+  <p id="noteBody"></p>
+</div>
+
+<div id="right">
+  <div class="card panel">
+    <h3>Controls</h3>
+    <div id="controls"></div>
+  </div>
+  <div class="card panel">
+    <h3>Readout</h3>
+    <div id="readout"></div>
+  </div>
+  <div class="card panel hidden" id="barCard">
+    <h3>Vacuum energy density</h3>
+    <div class="bars">
+      <div class="bar">
+        <div class="lab"><span>QFT prediction</span><span id="barPredV">—</span></div>
+        <div class="track"><div class="fill pred" id="barPred" style="width:0%"></div></div>
+      </div>
+      <div class="bar">
+        <div class="lab"><span>Observed (dark energy)</span><span>6×10⁻¹⁰ J/m³</span></div>
+        <div class="track"><div class="fill obs" id="barObs" style="width:2%"></div></div>
+      </div>
+      <div class="row" style="border:0;padding-top:10px">
+        <span class="k">Discrepancy</span><span class="v warn" id="barRatio">—</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="hint">DRAG · ORBIT<br>SCROLL · ZOOM<br>1–4 · SWITCH MODE</div>
+<div id="foot">Zero-point energy is real and measured — but it is a ground state, not a fuel tank</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls }    from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer }   from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass }       from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass }  from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass }       from 'three/addons/postprocessing/OutputPass.js';
+import { Line2 }            from 'three/addons/lines/Line2.js';
+import { LineGeometry }     from 'three/addons/lines/LineGeometry.js';
+import { LineMaterial }     from 'three/addons/lines/LineMaterial.js';
+
+/* ══════════════════════════════════════════════════════════════════
+   physical constants (SI)
+   ══════════════════════════════════════════════════════════════════ */
+const HBAR   = 1.054571817e-34;   // J·s
+const C      = 2.99792458e8;      // m/s
+const EV     = 1.602176634e-19;   // J
+const L_PL   = 1.616255e-35;      // Planck length, m
+const RHO_DE = 6.0e-10;           // observed dark-energy density, J/m³
+
+const COL = { cyan:0x4fe3ff, violet:0xa06bff, mag:0xff5ec4, amber:0xffcf6b, steel:0x2a4a6a };
+
+/* ══════════════════════════════════════════════════════════════════
+   renderer / scene / camera
+   ══════════════════════════════════════════════════════════════════ */
+const app = document.getElementById('app');
+const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+app.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x04060d, 0.016);
+
+const camera = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, 0.1, 900);
+camera.position.set(0, 12, 26);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.rotateSpeed = 0.55;
+controls.minDistance = 5;
+controls.maxDistance = 140;
+
+scene.add(new THREE.AmbientLight(0x4060a0, 1.1));
+const key = new THREE.PointLight(0x6fa8ff, 260, 160); key.position.set(18, 26, 20); scene.add(key);
+const rim = new THREE.PointLight(0xff5ec4,  90, 120); rim.position.set(-22, -8, -18); scene.add(rim);
+
+// distant starfield for depth
+(function stars(){
+  const N = 1400, p = new Float32Array(N*3);
+  for (let i=0;i<N;i++){
+    const r = 160 + Math.random()*380;
+    const th = Math.random()*Math.PI*2, ph = Math.acos(2*Math.random()-1);
+    p[i*3]   = r*Math.sin(ph)*Math.cos(th);
+    p[i*3+1] = r*Math.cos(ph);
+    p[i*3+2] = r*Math.sin(ph)*Math.sin(th);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(p,3));
+  scene.add(new THREE.Points(g, new THREE.PointsMaterial({
+    color:0x8fb4ff, size:1.1, sizeAttenuation:false, transparent:true, opacity:.34, depthWrite:false
+  })));
+})();
+
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.62, 0.55, 0.36);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+
+/* ── fat-line helper ────────────────────────────────────────────── */
+const lineMats = [];
+function fatLine(pts, color, width = 2.4, opacity = 1){
+  const g = new LineGeometry(); g.setPositions(pts);
+  const m = new LineMaterial({ color, linewidth:width, transparent:true, opacity, depthWrite:false });
+  m.resolution.set(innerWidth, innerHeight);
+  lineMats.push(m);
+  const l = new Line2(g, m); l.computeLineDistances();
+  return l;
+}
+function thinLine(count, color, opacity = .5){
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(count*3), 3));
+  return new THREE.Line(g, new THREE.LineBasicMaterial({
+    color, transparent:true, opacity, blending:THREE.AdditiveBlending, depthWrite:false
+  }));
+}
+function ring(radius, color, opacity = .5, seg = 128){
+  const pts = [];
+  for (let i=0;i<=seg;i++){ const a = i/seg*Math.PI*2; pts.push(Math.cos(a)*radius, 0, Math.sin(a)*radius); }
+  return fatLine(pts, color, 1.6, opacity);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   MODE 1 — vacuum fluctuations + virtual pairs
+   ══════════════════════════════════════════════════════════════════ */
+const M1 = (() => {
+  const group = new THREE.Group(); group.visible = false; scene.add(group);
+  const NMODES = 24;
+  const modes  = new Array(NMODES).fill(0).map(()=>new THREE.Vector4());
+  const phases = new Float32Array(NMODES);
+
+  // each field mode is an oscillator: zero-point amplitude ∝ √(ħ/2ω)
+  function seedModes(hbarScale, kMax){
+    for (let i=0;i<NMODES;i++){
+      const t = (i+0.5)/NMODES;
+      const k = 0.55 + Math.pow(t, 1.6) * kMax;      // wavenumber
+      const a = Math.random()*Math.PI*2;
+      const omega = k * 1.35;                        // ω = c·k (c set to taste)
+      const amp = hbarScale * Math.sqrt(0.5/omega) * 0.52;
+      modes[i].set(Math.cos(a)*k, Math.sin(a)*k, omega, amp);
+      phases[i] = Math.random()*Math.PI*2;
+    }
+  }
+  seedModes(1, 3.2);
+
+  const uniforms = {
+    uTime:   { value:0 },
+    uModes:  { value:modes },
+    uPhases: { value:phases },
+    uSize:   { value:2.6 },
+    uGain:   { value:1 }
+  };
+  const VERT = `
+      uniform float uTime, uSize, uGain;
+      uniform vec4  uModes[${NMODES}];
+      uniform float uPhases[${NMODES}];
+      varying float vH; varying float vFade;
+      void main(){
+        float h = 0.0;
+        for (int i=0;i<${NMODES};i++){
+          vec4 m = uModes[i];
+          h += m.w * cos(m.x*position.x + m.y*position.y - m.z*uTime + uPhases[i]);
+        }
+        h *= uGain;
+        vH = h;
+        vec4 mv = modelViewMatrix * vec4(position.x, position.y, h, 1.0);
+        vFade = clamp(1.0 - (-mv.z - 10.0) / 46.0, 0.10, 1.0);   // depth falloff
+        gl_PointSize = uSize * (26.0 / -mv.z);
+        gl_Position  = projectionMatrix * mv;
+      }`;
+  const shade = `
+      float e = clamp(abs(vH) * 0.55, 0.0, 1.0);
+      vec3 cold = vec3(0.10,0.30,0.55);
+      vec3 warm = mix(vec3(0.31,0.89,1.0), vec3(1.0,0.37,0.77), smoothstep(0.40,1.0,e));
+      vec3 c = mix(cold, warm, smoothstep(0.03,0.55,e));`;
+
+  const mk = (frag, wire) => new THREE.ShaderMaterial({
+    uniforms, vertexShader:VERT, fragmentShader:frag, wireframe:!!wire,
+    transparent:true, depthWrite:false, blending:THREE.AdditiveBlending
+  });
+
+  const ptsMat = mk(`
+      varying float vH; varying float vFade;
+      void main(){
+        float d = length(gl_PointCoord - 0.5);
+        if (d > 0.5) discard;
+        ${shade}
+        float a = (1.0 - d*2.0) * (0.34 + 0.95*e) * vFade;
+        gl_FragColor = vec4(c, a);
+      }`);
+  const wireMat = mk(`
+      varying float vH; varying float vFade;
+      void main(){ ${shade}
+        gl_FragColor = vec4(c, (0.07 + 0.15*e) * vFade); }`, true);
+
+  const pts  = new THREE.Points(new THREE.PlaneGeometry(26, 26, 150, 150), ptsMat);
+  const wire = new THREE.Mesh( new THREE.PlaneGeometry(26, 26,  46,  46), wireMat);
+  pts.rotation.x = wire.rotation.x = -Math.PI/2;
+  group.add(pts, wire);
+
+  // ── virtual particle / antiparticle pairs ───────────────────────
+  const NPAIR = 46, V = NPAIR*2;
+  const pPos  = new Float32Array(V*3), pCol = new Float32Array(V*3), pSize = new Float32Array(V);
+  const pg = new THREE.BufferGeometry();
+  pg.setAttribute('position', new THREE.BufferAttribute(pPos,3));
+  pg.setAttribute('color',    new THREE.BufferAttribute(pCol,3));
+  pg.setAttribute('psize',    new THREE.BufferAttribute(pSize,1));
+  const pairMat = new THREE.ShaderMaterial({
+    vertexShader:`
+      attribute float psize; varying vec3 vC;
+      void main(){ vC = color;
+        vec4 mv = modelViewMatrix * vec4(position,1.0);
+        gl_PointSize = psize * (58.0 / -mv.z);
+        gl_Position = projectionMatrix * mv; }`,
+    fragmentShader:`
+      varying vec3 vC;
+      void main(){ float d = length(gl_PointCoord-0.5); if(d>0.5) discard;
+        float a = pow(1.0-d*2.0, 2.0);
+        gl_FragColor = vec4(vC, a); }`,
+    transparent:true, depthWrite:false, blending:THREE.AdditiveBlending, vertexColors:true
+  });
+  group.add(new THREE.Points(pg, pairMat));
+  // the pair's "loan" drawn as a link: geometry is shared, so 0-1, 2-3 … are pairs
+  group.add(new THREE.LineSegments(pg, new THREE.LineBasicMaterial({
+    vertexColors:true, transparent:true, opacity:0.5,
+    blending:THREE.AdditiveBlending, depthWrite:false
+  })));
+
+  const pairs = [];
+  let hbarScale = 1;                              // closure-local: M1 doesn't exist yet here
+  function respawn(p){
+    // ΔE·Δt ≳ ħ/2  →  a bigger energy loan must be repaid sooner
+    p.dE   = 0.30 + Math.pow(Math.random(), 2.1) * 3.4;
+    p.life = Math.min(2.4, Math.max(0.4, (Math.max(0.05, hbarScale) * 1.9) / p.dE));  // τ ≈ ħ/2ΔE
+    p.t    = 0;
+    p.x    = (Math.random()-0.5) * 24;
+    p.z    = (Math.random()-0.5) * 24;
+    p.y    = 1.6 + Math.random()*3.4;
+    p.ang  = Math.random()*Math.PI*2;
+    p.sep  = 0.35 + p.life * 0.75;                // long-lived loans separate further
+    p.wait = Math.random() * 1.6;
+  }
+  for (let i=0;i<NPAIR;i++){ const p = {}; respawn(p); p.t = Math.random()*p.life; pairs.push(p); }
+
+  let livePairs = 0;
+  function updatePairs(dt){
+    if (hbarScale < 0.03){                    // no ħ, no borrowing: the pairs stop existing
+      pPos.fill(0); pSize.fill(0); livePairs = 0;
+      pg.attributes.position.needsUpdate = pg.attributes.psize.needsUpdate = true;
+      return;
+    }
+    livePairs = 0;
+    for (let i=0;i<NPAIR;i++){
+      const p = pairs[i];
+      if (p.wait > 0){                       // collapse to a point so the link vanishes too
+        p.wait -= dt;
+        for (let s2=0;s2<2;s2++){ const j=i*2+s2; pSize[j]=0; pPos[j*3]=p.x; pPos[j*3+1]=p.y; pPos[j*3+2]=p.z; }
+        continue;
+      }
+      p.t += dt;
+      if (p.t >= p.life){ respawn(p); continue; }
+      const u = p.t / p.life;                     // 0 → born, 1 → annihilated
+      const s = Math.sin(u * Math.PI);            // out and back
+      const d = s * p.sep;
+      const flash = (u < 0.06 || u > 0.94) ? 3.2 : 1.0;
+      const dx = Math.cos(p.ang)*d, dz = Math.sin(p.ang)*d;
+      const bright = (0.35 + 0.65*s) * flash * (0.5 + p.dE*0.22);
+      livePairs++;
+      for (let s2=0;s2<2;s2++){
+        const j = i*2+s2, sg = s2 ? -1 : 1;
+        pPos[j*3]   = p.x + dx*sg;
+        pPos[j*3+1] = p.y + s*0.5;
+        pPos[j*3+2] = p.z + dz*sg;
+        // particle = cyan, antiparticle = magenta; fades in at birth, out at annihilation
+        const env = 0.22 + 0.78*s;
+        pCol[j*3]   = (s2 ? 1.0  : 0.32) * env;
+        pCol[j*3+1] = (s2 ? 0.37 : 0.89) * env;
+        pCol[j*3+2] = (s2 ? 0.77 : 1.0 ) * env;
+        pSize[j]    = bright * 9.0;
+      }
+    }
+    pg.attributes.position.needsUpdate = true;
+    pg.attributes.color.needsUpdate    = true;
+    pg.attributes.psize.needsUpdate    = true;
+  }
+
+  return {
+    group, hbar:1, kMax:3.2,
+    setHbar(v){ this.hbar = v; hbarScale = v; uniforms.uGain.value = v; seedModes(v, this.kMax); },
+    setKMax(v){ this.kMax = v; seedModes(this.hbar, v); },
+    get livePairs(){ return livePairs; },
+    update(dt, t){ uniforms.uTime.value = t; updatePairs(dt); },
+    rms(){ // ⟨h²⟩ = Σ A²/2  →  the field's irreducible jitter
+      let s = 0; for (const m of modes) s += m.w*m.w*0.5;
+      return Math.sqrt(s) * this.hbar;
+    }
+  };
+})();
+
+/* ══════════════════════════════════════════════════════════════════
+   MODE 2 — quantum harmonic oscillator, E = (n+½)ħω
+   ══════════════════════════════════════════════════════════════════ */
+const M2 = (() => {
+  const group = new THREE.Group(); group.visible = false; scene.add(group);
+  const SC = 1.9;                                  // dimensionless ξ → world units
+
+  // parabolic bowl V = ½ξ²   (drawn as a ring-and-spoke wireframe)
+  const bowl = new THREE.Group(); group.add(bowl);
+  const RMAX = 4.6;                                // ξ at the top of the drawn bowl
+  for (let a=0;a<30;a++){
+    const th = a/30*Math.PI*2, pts = [];
+    for (let i=0;i<=40;i++){ const r = i/40*RMAX; pts.push(Math.cos(th)*r*SC, 0.5*r*r*SC*0.5, Math.sin(th)*r*SC); }
+    bowl.add(fatLine(pts, COL.steel, 1.0, 0.13));
+  }
+
+  // energy levels + wavefunction live here
+  const levels = new THREE.Group(); group.add(levels);
+  const psiG   = new THREE.Group(); group.add(psiG);
+
+  // Hermite polynomials (physicists'): H₀=1, H₁=2ξ, H_{n+1}=2ξH_n − 2nH_{n−1}
+  function hermite(n, x){
+    if (n === 0) return 1;
+    let hm = 1, h = 2*x;
+    for (let k=1;k<n;k++){ const nx = 2*x*h - 2*k*hm; hm = h; h = nx; }
+    return h;
+  }
+  const psi = (n, x) => hermite(n, x) * Math.exp(-x*x/2);
+
+  let level = 0, omega14 = 3.0;                    // ω in units of 10¹⁴ rad/s
+  const NMAX = 8;
+  const height = n => (n + 0.5) * SC * 0.5;        // E in units of ħω → world y
+
+  function rebuild(){
+    [levels, psiG].forEach(g => { while (g.children.length) { const c = g.children.pop(); c.geometry?.dispose(); } });
+
+    for (let n=0;n<=NMAX;n++){
+      const turn = Math.sqrt(2*n + 1);             // classical turning point ξ = √(2n+1)
+      const on = n === level;
+      const r = ring(turn*SC, on ? COL.cyan : (n===0 ? COL.amber : 0x4a7fd0),
+                             on ? 0.95 : (n===0 ? 0.60 : 0.42));
+      r.position.y = height(n);
+      levels.add(r);
+    }
+
+    // |ψₙ(ξ)|² riding on its own energy level
+    const N = 260, X = Math.sqrt(2*level + 1) + 2.0, sq = [], sig = [];
+    let peak = 0;
+    for (let i=0;i<=N;i++){ const x = -X + 2*X*i/N; peak = Math.max(peak, Math.abs(psi(level,x))); }
+    const y0 = height(level);
+    for (let i=0;i<=N;i++){
+      const x = -X + 2*X*i/N, p = psi(level,x)/peak;
+      sq.push(x*SC, y0 + p*p*2.1, 0);
+      sig.push(x*SC, y0 + p*1.35, 0.001);
+    }
+    psiG.add(fatLine(sq,  COL.mag,    3.0, 0.98));
+    psiG.add(fatLine(sig, COL.violet, 1.4, 0.30));
+
+    // rejection-sampling table for the jittering particle
+    sampler.peak = peak; sampler.X = X;
+  }
+  const sampler = { peak:1, X:3 };
+  function sampleX(){
+    for (let i=0;i<64;i++){
+      const x = (Math.random()*2-1)*sampler.X;
+      const p = psi(level,x)/sampler.peak;
+      if (Math.random() < p*p) return x;
+    }
+    return 0;
+  }
+
+  // the particle that can never sit still
+  const dot = new THREE.Mesh(
+    new THREE.SphereGeometry(0.19, 20, 20),
+    new THREE.MeshBasicMaterial({ color:0xffffff })
+  );
+  const halo = new THREE.Mesh(
+    new THREE.SphereGeometry(0.46, 20, 20),
+    new THREE.MeshBasicMaterial({ color:COL.cyan, transparent:true, opacity:0.2, depthWrite:false, blending:THREE.AdditiveBlending })
+  );
+  dot.add(halo); group.add(dot);
+  let target = new THREE.Vector3(), hop = 0;
+
+  rebuild();
+
+  return {
+    group,
+    get level(){ return level; },
+    get omega(){ return omega14 * 1e14; },
+    setLevel(n){ level = n; rebuild(); },
+    setOmega(v){ omega14 = v; },
+    update(dt, t){
+      hop -= dt;
+      if (hop <= 0){
+        hop = 0.055 + Math.random()*0.05;
+        target.set(sampleX()*SC, height(level) + (Math.random()-0.5)*0.25, (Math.random()-0.5)*0.5);
+      }
+      dot.position.lerp(target, Math.min(1, dt*13));
+      halo.scale.setScalar(1 + Math.sin(t*6)*0.14);
+    },
+    energyJ(){ return (level + 0.5) * HBAR * this.omega; },
+    zeroPointJ(){ return 0.5 * HBAR * this.omega; }
+  };
+})();
+
+/* ══════════════════════════════════════════════════════════════════
+   MODE 3 — Casimir effect
+   ══════════════════════════════════════════════════════════════════ */
+const M3 = (() => {
+  const group = new THREE.Group(); group.visible = false; scene.add(group);
+  const WORLD = 9;                                  // half-width of the outside region
+  let Lnm = 220;                                    // plate separation, nanometres
+  const gapWorld = () => 1.1 + (Lnm/2000) * 7.5;    // nm → world half-gap
+
+  const plateGeo = new THREE.BoxGeometry(0.2, 5.4, 5.4);
+  const plateMat = new THREE.MeshStandardMaterial({
+    color:0x9fc4ff, metalness:0.92, roughness:0.18,
+    transparent:true, opacity:0.26, emissive:0x1b3a66, emissiveIntensity:1.3
+  });
+  const pL = new THREE.Mesh(plateGeo, plateMat);
+  const pR = new THREE.Mesh(plateGeo, plateMat.clone());
+  group.add(pL, pR);
+  [pL,pR].forEach(p => {
+    const e = new THREE.LineSegments(
+      new THREE.EdgesGeometry(plateGeo),
+      new THREE.LineBasicMaterial({ color:COL.cyan, transparent:true, opacity:0.9 })
+    );
+    p.add(e);
+  });
+
+  // pressure arrows
+  const arrowMat = new THREE.MeshBasicMaterial({ color:COL.mag, transparent:true, opacity:0.9 });
+  const aL = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.8, 16), arrowMat);
+  const aR = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.8, 16), arrowMat);
+  aL.rotation.z = -Math.PI/2; aR.rotation.z = Math.PI/2;
+  group.add(aL, aR);
+
+  // inside: only standing waves with λ = 2L/n survive
+  const SEG = 130, NIN = 7;
+  const inside = [];
+  for (let n=1;n<=NIN;n++){
+    const l = thinLine(SEG+1, n<=3 ? COL.cyan : COL.violet, 0.85);
+    l.userData.n = n; inside.push(l); group.add(l);
+  }
+  // outside: an unrestricted continuum
+  const NOUT = 13, outside = [];
+  for (let i=0;i<NOUT*2;i++){
+    const l = thinLine(SEG+1, COL.steel, 0.55);
+    l.userData.k = 0.9 + Math.pow(i%NOUT/NOUT, 1.4)*7.5;
+    l.userData.side = i < NOUT ? -1 : 1;
+    l.userData.z = ((i%NOUT) - (NOUT-1)/2) * 0.85;
+    outside.push(l); group.add(l);
+  }
+
+  function writeLine(line, fn, x0, x1, z){
+    const a = line.geometry.attributes.position.array;
+    for (let i=0;i<=SEG;i++){
+      const u = i/SEG, x = x0 + (x1-x0)*u;
+      a[i*3] = x; a[i*3+1] = fn(x,u); a[i*3+2] = z;
+    }
+    line.geometry.attributes.position.needsUpdate = true;
+  }
+
+  return {
+    group,
+    get Lnm(){ return Lnm; },
+    setL(v){ Lnm = v; },
+    update(dt, t){
+      const g = gapWorld();
+      pL.position.x = -g; pR.position.x = g;
+      const P = this.pressure();
+      const push = Math.min(1.6, Math.max(0.22, Math.log10(P/1e-4)*0.30));
+      aL.position.set(-g - 0.9 - push*0.4, 0, 0); aL.scale.set(1, 0.6 + push, 1);
+      aR.position.set( g + 0.9 + push*0.4, 0, 0); aR.scale.set(1, 0.6 + push, 1);
+      arrowMat.opacity = 0.55 + Math.min(0.45, push*0.4);
+
+      // standing modes between the plates: k = nπ/L, nodes pinned at both plates
+      inside.forEach((l, i) => {
+        const n = l.userData.n;
+        const amp = 1.05 / Math.sqrt(n);
+        const z = (i - (NIN-1)/2) * 0.85;
+        const om = n * 1.5;
+        writeLine(l, (x,u) => Math.sin(n*Math.PI*u) * amp * Math.cos(t*om), -g, g, z);
+        l.material.opacity = 0.9;
+      });
+      // free modes outside: any k allowed
+      outside.forEach(l => {
+        const { k, side, z } = l.userData;
+        const x0 = side < 0 ? -WORLD*1.55 : g;
+        const x1 = side < 0 ? -g : WORLD*1.55;
+        writeLine(l, (x) => Math.sin(k*x - t*k*1.1) * 0.5, x0, x1, z);
+      });
+    },
+    // P = −π²ħc / 240 L⁴   (attractive, per unit area)
+    pressure(){ const L = Lnm*1e-9; return Math.PI**2 * HBAR * C / (240 * L**4); },
+    forceOnCm2(){ return this.pressure() * 1e-4; },
+    modesInside(){ return Math.max(1, Math.floor(2*Lnm/200)); }   // count of λ≥200nm modes that fit
+  };
+})();
+
+/* ══════════════════════════════════════════════════════════════════
+   MODE 4 — summing ½ħω over all modes → the cosmological constant problem
+   ══════════════════════════════════════════════════════════════════ */
+const M4 = (() => {
+  const group = new THREE.Group(); group.visible = false; scene.add(group);
+  const N = 24000;
+  const base = new Float32Array(N*3), col = new Float32Array(N*3);
+  for (let i=0;i<N;i++){
+    // uniform in the ball, so density in k-space is honest
+    const u = Math.random(), r = Math.cbrt(u);
+    const th = Math.random()*Math.PI*2, ph = Math.acos(2*Math.random()-1);
+    base[i*3]   = r*Math.sin(ph)*Math.cos(th);
+    base[i*3+1] = r*Math.cos(ph);
+    base[i*3+2] = r*Math.sin(ph)*Math.sin(th);
+    // colour by |k| — energy per mode is ½ħck, so the rim carries almost everything
+    const c = new THREE.Color(COL.cyan).lerp(new THREE.Color(COL.mag), Math.pow(r, 1.6))
+                .multiplyScalar(0.42 + r*0.75);
+    col[i*3] = c.r; col[i*3+1] = c.g; col[i*3+2] = c.b;
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(base,3));
+  g.setAttribute('color',    new THREE.BufferAttribute(col,3));
+  const cloud = new THREE.Points(g, new THREE.PointsMaterial({
+    size:0.055, vertexColors:true, transparent:true, opacity:0.72,
+    blending:THREE.AdditiveBlending, depthWrite:false, sizeAttenuation:true
+  }));
+  group.add(cloud);
+
+  const shell = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(1, 3),
+    new THREE.MeshBasicMaterial({ color:COL.cyan, wireframe:true, transparent:true, opacity:0.16 })
+  );
+  group.add(shell);
+
+  const glow = new THREE.Mesh(
+    new THREE.SphereGeometry(1, 42, 42),
+    new THREE.MeshBasicMaterial({ color:COL.violet, transparent:true, opacity:0.05,
+      side:THREE.BackSide, blending:THREE.AdditiveBlending, depthWrite:false })
+  );
+  group.add(glow);
+
+  // axis ticks so the log scale is legible
+  for (const dir of [[1,0,0],[0,1,0],[0,0,1]]){
+    const p = [];
+    for (let i=-1;i<=1;i+=2) p.push(dir[0]*i*11, dir[1]*i*11, dir[2]*i*11);
+    group.add(fatLine(p, COL.steel, 1.0, 0.16));
+  }
+
+  let logK = 20;                                    // log₁₀(k_cutoff / m⁻¹)
+  const logKmax = Math.log10(1/L_PL);               // ≈ 34.79 (Planck)
+
+  return {
+    group,
+    get logK(){ return logK; },
+    get logKmax(){ return logKmax; },
+    setLogK(v){ logK = v; },
+    update(dt, t){
+      const s = 1.4 + (logK/logKmax) * 8.6;
+      cloud.scale.setScalar(s); shell.scale.setScalar(s); glow.scale.setScalar(s*1.02);
+      group.rotation.y += dt*0.055;
+      shell.rotation.x -= dt*0.03;
+      cloud.material.size = 0.055 * (1.4/ s * 3 + 0.5);
+      glow.material.opacity = 0.03 + 0.05*(logK/logKmax);
+    },
+    // ρ = ∫₀^K ½ħck · d³k/(2π)³ = ħcK⁴/16π²
+    rho(){ const K = Math.pow(10, logK); return HBAR * C * Math.pow(K,4) / (16*Math.PI**2); }
+  };
+})();
+
+/* ══════════════════════════════════════════════════════════════════
+   modes, copy, controls
+   ══════════════════════════════════════════════════════════════════ */
+const fmt = (x, d=3) => {
+  if (!isFinite(x)) return '—';
+  if (x === 0) return '0';
+  const e = Math.floor(Math.log10(Math.abs(x)));
+  if (e >= -3 && e < 5) return x.toFixed(Math.max(0, d - 1 - e));
+  const m = x / Math.pow(10, e);
+  return `${m.toFixed(2)}×10${sup(e)}`;
+};
+const sup = n => String(n).replace(/-/g,'⁻').replace(/[0-9]/g, d => '⁰¹²³⁴⁵⁶⁷⁸⁹'[+d]);
+
+const MODES = [
+  {
+    id:'foam', title:'Vacuum fluctuations',
+    headEq:'⟨0|E²|0⟩ ≠ 0',
+    obj:M1,
+    cam:{ pos:[0, 21, 33], target:[0, 0.5, 0] },
+    eq:'E₀ = ½ħω  per field mode<span></span><small>every mode of every field is a harmonic oscillator</small>',
+    body:`Empty space is a field at its ground state, not a field at zero. Each mode still carries <em>½ħω</em>, so the field never stops jittering — remove every particle and the surface below still ripples.
+    <br><br>Energy–time uncertainty (ΔE·Δt ≳ ħ/2) lets pairs borrow energy from the vacuum: <em>cyan</em> particle, <em>magenta</em> antiparticle. The bigger the loan, the faster it must be repaid — watch the energetic pairs die young.
+    <br><br>Drag ħ to zero and the vacuum goes flat. That flat sheet is the classical vacuum, and it is <em>wrong</em>.`,
+    ctls:[
+      { id:'hbar', label:'ħ (scaled)', min:0, max:2, step:0.01, val:1,
+        show:v=>v.toFixed(2)+'×', on:v=>M1.setHbar(v) },
+      { id:'kmax', label:'mode cutoff k', min:1, max:7, step:0.1, val:3.2,
+        show:v=>v.toFixed(1), on:v=>M1.setKMax(v) }
+    ],
+    read(){ return [
+      ['field jitter √⟨h²⟩', fmt(M1.rms(),3), 'hi'],
+      ['modes summed', '24'],
+      ['virtual pairs live', String(M1.livePairs)],
+      ['energy of true vacuum', M1.hbar < 0.02 ? '0 — classical' : 'Σ ½ħω → ∞', M1.hbar<0.02?'':'warn']
+    ]; }
+  },
+  {
+    id:'osc', title:'The irreducible ½ħω',
+    headEq:'Eₙ = (n + ½)ħω',
+    obj:M2,
+    cam:{ pos:[0.5, 10.5, 25], target:[0, 4.2, 0] },
+    eq:'Eₙ = (n + ½)ħω<span></span><small>n = 0 is the floor, and the floor is not zero</small>',
+    body:`A particle in a well cannot lie still at the bottom: that would fix position <em>and</em> momentum at once. So the lowest allowed state still holds <em>½ħω</em> — the zero-point energy.
+    <br><br>The magenta curve is |ψₙ(x)|², the probability of finding the particle. The white dot is sampled from it in real time. At n = 0 it is still moving; nothing you do removes that energy, because there is no lower state to fall to.
+    <br><br>Every mode of every quantum field is one of these oscillators. Add them all up and you get the vacuum.`,
+    ctls:[
+      { id:'lvl', label:'quantum number n', min:0, max:8, step:1, val:0,
+        show:v=>'n = '+v, on:v=>M2.setLevel(v) },
+      { id:'om', label:'ω  (10¹⁴ rad/s)', min:0.5, max:10, step:0.1, val:3,
+        show:v=>v.toFixed(1), on:v=>M2.setOmega(v) }
+    ],
+    read(){ return [
+      ['E₀ = ½ħω', fmt(M2.zeroPointJ()/EV,3)+' eV', 'hi'],
+      ['Eₙ (n = '+M2.level+')', fmt(M2.energyJ()/EV,3)+' eV'],
+      ['ω', fmt(M2.omega,3)+' rad/s'],
+      ['can n reach 0 energy?', 'no', 'warn']
+    ]; }
+  },
+  {
+    id:'casimir', title:'Casimir effect',
+    headEq:'P = −π²ħc / 240L⁴',
+    obj:M3,
+    cam:{ pos:[0, 4.5, 19], target:[0, 0, 0] },
+    eq:'P = − π²ħc / 240 L⁴<span></span><small>measured 1997 — Lamoreaux, then Mohideen &amp; Roy</small>',
+    body:`Between two mirrors only wavelengths that fit survive: λ = 2L/n. Outside, every wavelength is allowed. Fewer modes inside than outside means less vacuum energy inside — and the imbalance <em>pushes the plates together</em>.
+    <br><br>This is the hard experimental proof that zero-point energy is physical, not bookkeeping. At 100 nm the vacuum presses with about 13 Pa, roughly atmospheric pressure divided by eight thousand.
+    <br><br>It is not free energy. Letting them snap shut yields work <em>once</em>; pulling them apart costs exactly the same back.`,
+    ctls:[
+      { id:'sep', label:'plate separation L', min:50, max:2000, step:5, val:220,
+        show:v=>v.toFixed(0)+' nm', on:v=>M3.setL(v) }
+    ],
+    read(){ return [
+      ['separation L', M3.Lnm.toFixed(0)+' nm'],
+      ['vacuum pressure', fmt(M3.pressure(),3)+' Pa', 'hi'],
+      ['force on 1 cm²', fmt(M3.forceOnCm2(),3)+' N'],
+      ['scaling', 'P ∝ 1/L⁴', 'warn']
+    ]; }
+  },
+  {
+    id:'sum', title:'Summing every mode',
+    headEq:'ρ = ħcK⁴ / 16π²',
+    obj:M4, bars:true,
+    cam:{ pos:[0, 8, 30], target:[0, 0, 0] },
+    eq:'ρ<sub>vac</sub> = ħcK⁴ / 16π²<span></span><small>sum ½ħck over every mode with |k| &lt; K — the answer depends entirely on where you stop counting</small>',
+    body:`Add ½ħω over every mode in k-space and the total diverges. Physics survives by cutting off at some maximum wavenumber K — the sphere you are looking at. Its <em>rim</em> holds nearly all the energy, because ρ grows as K⁴.
+    <br><br>Cut off at the Planck scale, where spacetime itself is expected to break, and you predict ~10¹¹¹ J/m³. The universe actually measures 6×10⁻¹⁰ J/m³.
+    <br><br>That gap — around <em>10¹²⁰</em> — is the cosmological constant problem: the worst quantitative prediction in the history of physics, and still open.`,
+    ctls:[
+      { id:'cut', label:'cutoff  log₁₀ K (m⁻¹)', min:6, max:34.79, step:0.05, val:20,
+        show:v=>'10'+sup(Math.round(v))+' m⁻¹', on:v=>M4.setLogK(v) }
+    ],
+    read(){
+      const rho = M4.rho();
+      return [
+        ['cutoff K', fmt(Math.pow(10,M4.logK),3)+' m⁻¹'],
+        ['ρ vacuum', fmt(rho,3)+' J/m³', 'hi'],
+        ['ρ vac / ρ observed', fmt(rho/RHO_DE,3), 'warn'],
+        ['at Planck scale', '≈10¹²⁰ too big']
+      ];
+    }
+  }
+];
+
+/* ── build the mode rail ────────────────────────────────────────── */
+const rail = document.getElementById('rail');
+MODES.forEach((m, i) => {
+  const el = document.createElement('div');
+  el.className = 'mode';
+  el.innerHTML = `<span class="n">0${i+1}</span><span class="t">${m.title}</span>`;
+  el.onclick = () => select(i);
+  rail.appendChild(el);
+  m.el = el;
+});
+
+const $controls = document.getElementById('controls');
+const $readout  = document.getElementById('readout');
+const $barCard  = document.getElementById('barCard');
+let active = -1;
+
+const camFrom = new THREE.Vector3(), camTo = new THREE.Vector3();
+const tgtFrom = new THREE.Vector3(), tgtTo = new THREE.Vector3();
+let camT = 1;
+
+function select(i){
+  if (i === active) return;
+  active = i;
+  MODES.forEach((m,j) => { m.el.classList.toggle('on', j===i); m.obj.group.visible = j===i; });
+  const m = MODES[i];
+
+  document.getElementById('headEq').innerHTML   = m.headEq;
+  document.getElementById('noteTitle').textContent = m.title;
+  document.getElementById('noteEq').innerHTML   = m.eq;
+  document.getElementById('noteBody').innerHTML = m.body;
+  $barCard.classList.toggle('hidden', !m.bars);
+
+  $controls.innerHTML = '';
+  m.ctls.forEach(c => {
+    const d = document.createElement('div');
+    d.className = 'ctl';
+    d.innerHTML = `<label>${c.label}<b id="lbl-${c.id}">${c.show(c.val)}</b></label>
+      <input type="range" min="${c.min}" max="${c.max}" step="${c.step}" value="${c.val}">`;
+    const input = d.querySelector('input');
+    input.oninput = () => {
+      const v = parseFloat(input.value);
+      c.val = v;
+      d.querySelector('b').textContent = c.show(v);
+      c.on(v);
+    };
+    $controls.appendChild(d);
+    c.on(c.val);
+  });
+
+  camFrom.copy(camera.position); tgtFrom.copy(controls.target);
+  camTo.set(...m.cam.pos);       tgtTo.set(...m.cam.target);
+  camT = 0;
+}
+
+function refreshReadout(){
+  const m = MODES[active];
+  $readout.innerHTML = m.read()
+    .map(([k,v,cls]) => `<div class="row"><span class="k">${k}</span><span class="v ${cls||''}">${v}</span></div>`)
+    .join('');
+  if (m.bars){
+    const rho = M4.rho();
+    const lp = Math.log10(Math.max(rho, 1e-30)), lo = Math.log10(RHO_DE);
+    const span = [ -12, 118 ];
+    const pct = x => Math.max(1.5, Math.min(100, (x - span[0])/(span[1]-span[0])*100));
+    document.getElementById('barPred').style.width = pct(lp)+'%';
+    document.getElementById('barObs').style.width  = pct(lo)+'%';
+    document.getElementById('barPredV').textContent = fmt(rho,2)+' J/m³';
+    document.getElementById('barRatio').textContent = fmt(rho/RHO_DE,2)+'×';
+  }
+}
+
+addEventListener('keydown', e => {
+  const n = parseInt(e.key, 10);
+  if (n >= 1 && n <= MODES.length) select(n-1);
+});
+
+/* ══════════════════════════════════════════════════════════════════
+   loop
+   ══════════════════════════════════════════════════════════════════ */
+const clock = new THREE.Clock();
+let acc = 0;
+const easeOut = t => 1 - Math.pow(1 - t, 3);
+
+function animate(){
+  requestAnimationFrame(animate);
+  const dt = Math.min(0.05, clock.getDelta());
+  const t  = clock.elapsedTime;
+
+  if (camT < 1){
+    camT = Math.min(1, camT + dt*0.9);
+    const e = easeOut(camT);
+    camera.position.lerpVectors(camFrom, camTo, e);
+    controls.target.lerpVectors(tgtFrom, tgtTo, e);
+  }
+
+  MODES[active].obj.update(dt, t);
+  controls.update();
+
+  acc += dt;
+  if (acc > 0.1){ acc = 0; refreshReadout(); }
+
+  composer.render();
+}
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  composer.setSize(innerWidth, innerHeight);
+  lineMats.forEach(m => m.resolution.set(innerWidth, innerHeight));
+});
+
+select(0);
+animate();
+</script>
+</body>
+</html>
