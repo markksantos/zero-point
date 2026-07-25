@@ -43,7 +43,7 @@
   /* ---------- header ---------- */
   #head{position:fixed;top:22px;left:24px;z-index:5;pointer-events:none}
   #head h1{
-    font-size:15px;font-weight:600;letter-spacing:.42em;
+    font-size:19px;font-weight:600;letter-spacing:.38em;
     color:#fff;text-transform:uppercase;
   }
   #head p{margin-top:7px;font-size:11px;color:var(--dim);letter-spacing:.16em}
@@ -113,7 +113,8 @@
   .bar{margin:9px 0}
   .bar .lab{display:flex;justify-content:space-between;font-size:10px;color:var(--dim);margin-bottom:5px}
   .bar .track{height:5px;background:rgba(120,160,255,.12);border-radius:3px;overflow:hidden}
-  .bar .fill{height:100%;border-radius:3px;transition:width .35s ease}
+  .bar .fill{height:100%;width:100%;border-radius:3px;transform:scaleX(0);
+    transform-origin:left center;transition:transform .35s ease}
   .fill.pred{background:linear-gradient(90deg,#a06bff,#ff5ec4)}
   .fill.obs{background:linear-gradient(90deg,#2a4a6a,#4fe3ff)}
 
@@ -167,11 +168,11 @@
     <div class="bars">
       <div class="bar">
         <div class="lab"><span>QFT prediction</span><span id="barPredV">—</span></div>
-        <div class="track"><div class="fill pred" id="barPred" style="width:0%"></div></div>
+        <div class="track"><div class="fill pred" id="barPred"></div></div>
       </div>
       <div class="bar">
         <div class="lab"><span>Observed (dark energy)</span><span>6×10⁻¹⁰ J/m³</span></div>
-        <div class="track"><div class="fill obs" id="barObs" style="width:2%"></div></div>
+        <div class="track"><div class="fill obs" id="barObs"></div></div>
       </div>
       <div class="row" style="border:0;padding-top:10px">
         <span class="k">Discrepancy</span><span class="v warn" id="barRatio">—</span>
@@ -901,8 +902,8 @@ function refreshReadout(){
     const lp = Math.log10(Math.max(rho, 1e-30)), lo = Math.log10(RHO_DE);
     const span = [ -12, 118 ];
     const pct = x => Math.max(1.5, Math.min(100, (x - span[0])/(span[1]-span[0])*100));
-    document.getElementById('barPred').style.width = pct(lp)+'%';
-    document.getElementById('barObs').style.width  = pct(lo)+'%';
+    document.getElementById('barPred').style.transform = `scaleX(${pct(lp)/100})`;
+    document.getElementById('barObs').style.transform  = `scaleX(${pct(lo)/100})`;
     document.getElementById('barPredV').textContent = fmt(rho,2)+' J/m³';
     document.getElementById('barRatio').textContent = fmt(rho/RHO_DE,2)+'×';
   }
